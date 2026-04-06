@@ -3,10 +3,12 @@ package com.codewithmosh.store.controllers;
 import com.codewithmosh.store.dtos.ProductDto;
 import com.codewithmosh.store.entities.Product;
 import com.codewithmosh.store.mappers.ProductMapper;
+import com.codewithmosh.store.repositories.CategoryRepository;
 import com.codewithmosh.store.repositories.ProductRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,6 +19,7 @@ import java.util.Objects;
 public class ProductController {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final CategoryRepository categoryRepository;
 
     @GetMapping()
     public Iterable<ProductDto> getAllProducts(
@@ -40,5 +43,25 @@ public class ProductController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(productMapper.toDto(product));
+    }
+
+    @PostMapping
+    public ResponseEntity<ProductDto> createProduct(
+            @RequestBody ProductDto productDto,
+            UriComponentsBuilder uriBuilder
+    ){
+        var categoryId = productDto.getCategoryId();
+        var category = categoryRepository.findById(categoryId).orElse(null);
+        if (category == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        var product = productMapper.toEntity(productDto);
+        product.setCategory(category);
+        productRepository.save(product);
+
+        var productDtoResult = productMapper.toDto(product);
+        var uri = uriBuilder.path("/products/{id}").buildAndExpand(product.getId()).toUri();
+        return ResponseEntity.created(uri).body(productDtoResult);
     }
 }
